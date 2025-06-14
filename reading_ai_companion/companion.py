@@ -46,7 +46,7 @@ class Companion:
         self.agent = Agent(name='Assistant', instructions=formatted_prompt, model=model)
         self.agent_context: List[Dict[str, Any]] = []
 
-    def explain(self, use_knowledge_base: bool = True, num_concepts: int = 3, chapter: str | None = None):
+    def explain(self, use_knowledge_base: bool = False, num_concepts: int = 3, chapter: str | None = None):
         """
         Explain the book based.
 
@@ -106,7 +106,7 @@ class Companion:
 
         return result.final_output
 
-    def setup_knowledge_base_for_book(self, num_concepts: int = 10, num_items_per_concept: int = 3):
+    def setup_knowledge_base(self, num_concepts: int = 10, num_items_per_concept: int = 3):
         """
         Setup the knowledge base by retrieving the relevant literature for the book and storing in a vector database.
 

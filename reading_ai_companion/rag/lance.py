@@ -119,7 +119,7 @@ class LanceRAG(RAG):
         if table is None:
             raise ValueError(
                 f'Table {table_name} does not exist. Knowledge base not setup for this book. '
-                'Please run Companion.setup_knowledge_base_for_book() to setup the knowledge base.'
+                'Please run Companion.setup_knowledge_base() to setup the knowledge base.'
             )
 
         unique_texts = []
