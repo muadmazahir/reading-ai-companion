@@ -1,0 +1,15 @@
+[MASTER]
+extension-pkg-whitelist=pydantic
+
+[FORMAT]
+max-line-length=120
+max-args=8
+min-public-methods=0
+max-locals=20
+
+[MESSAGES CONTROL]
+
+[BASIC]
+
+[main]
+max-module-lines=1100

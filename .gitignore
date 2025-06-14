@@ -1,0 +1,11 @@
+__pycache__
+dist
+.venv
+.vscode
+.DS_Store
+.idea
+.mypy_cache
+.env
+data/
+test-db
+.DS_Store

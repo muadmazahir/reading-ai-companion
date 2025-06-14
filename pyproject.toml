@@ -1,0 +1,31 @@
+[tool.poetry]
+name = "reading-ai-companion"
+version = "0.1.0"
+description = ""
+authors = ["muad <muad@causalens.com>"]
+readme = "README.md"
+
+[tool.blue]
+line-length = 120
+
+[tool.isort]
+line_length = 120
+profile = "black"
+
+
+[tool.poetry.dependencies]
+python = "^3.11"
+openai-agents = {extras = ["litellm"], version = "^0.0.16"}
+lancedb = "^0.23.0"
+docling = "^2.36.1"
+
+
+[tool.poetry.group.dev.dependencies]
+isort = "^6.0.1"
+blue = "^0.9.1"
+pylint = "^3.3.7"
+mypy = "^1.16.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
