@@ -30,7 +30,7 @@ class RAG(ABC):
         """
         Embed a list of chunks
 
-        :param table_name: The name of the table to embed the chunks for. 
+        :param table_name: The name of the table to embed the chunks for.
             This will be used as the table name in the vector database.
         :param chunks: The chunks to embed
         """

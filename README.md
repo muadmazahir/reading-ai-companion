@@ -25,13 +25,34 @@ poetry install
 
 You'll need to set up the following environment variables:
 
-```bash
-# OpenAI API key for the AI companion
-export OPENAI_API_KEY='your-openai-api-key'
+### Option 1: Using OpenAI API (Default)
 
-# CORE API key for knowledge retrieval. You can setup key here: https://core.ac.uk/services/api#what-is-included
-export CORE_API_KEY='your-core-api-key'
+```bash
+# Set to use OpenAI API (default behavior)
+export USE_OPENAI_API='true'
+
+# OpenAI API key for the AI companion
+export LLM_API_KEY='your-openai-api-key'
 ```
+
+### Option 2: Using separate LLM API
+
+You can use a separate LLM server like local Ollama:
+
+```bash
+# Set to use local LLM server
+export USE_OPENAI_API='false'
+
+# URL of your LLM server (e.g., Ollama, LM Studio, etc.)
+export LLM_API_URL='http://localhost:11434'
+
+# Model name for your local LLM
+export LLM_MODEL='gemma3:1b'
+
+# Optional: API key if your server requires authentication
+export LLM_API_KEY='your-local-api-key'
+```
+
 
 ## Usage
 

@@ -24,13 +24,12 @@ class Companion:
     """
     A AI companion to help you understand books.
     """
-    def __init__(self, book_name: str, author: str | None = None, model: str = 'o4-mini'):
-        assert os.environ.get('OPENAI_API_KEY') is not None, 'OPENAI_API_KEY is not set'
 
-        self.model = model
+    def __init__(self, book_name: str, author: str | None = None):
+        self.model = os.environ.get('LLM_MODEL', 'o4-mini')
 
         verifier_agent = Agent(
-            name='Verifier', instructions=VERIFIER_SYSTEM_PROMPT, model=model, output_type=BookExists
+            name='Verifier', instructions=VERIFIER_SYSTEM_PROMPT, model=self.model, output_type=BookExists
         )
         input_dict = {'Book': book_name, 'Author': author}
         verifier_result = Runner.run_sync(verifier_agent, str(input_dict))
@@ -43,7 +42,7 @@ class Companion:
         logger.info('Book name: %s; Author: %s', self.book_name, self.author)
 
         formatted_prompt = COMPANION_SYSTEM_PROMPT.format(book_name=book_name, author=self.author)
-        self.agent = Agent(name='Assistant', instructions=formatted_prompt, model=model)
+        self.agent = Agent(name='Assistant', instructions=formatted_prompt, model=self.model)
         self.agent_context: List[Dict[str, Any]] = []
 
     def explain(self, use_knowledge_base: bool = False, num_concepts: int = 3, chapter: str | None = None):
@@ -110,7 +109,7 @@ class Companion:
         """
         Setup the knowledge base by retrieving the relevant literature for the book and storing in a vector database.
 
-        It first derives the most important concepts for the book 
+        It first derives the most important concepts for the book
         and then retrieves the relevant literature for each concept.
 
         The literatures is journal articles, books, essays, etc.
