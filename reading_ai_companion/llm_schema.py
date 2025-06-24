@@ -148,6 +148,81 @@ Example output:
 Your output must be a Python list of strings, where each string is a search query corresponding to one input concept. The order of queries should match the order of input concepts. Each query should be designed to maximize the relevance of retrieved documents while maintaining the original concept's meaning.
 """
 
+PROMPT_COMPLETION_GENERATOR_SYSTEM_PROMPT = """
+You are an expert educational content creator specializing in generating high-quality prompt-completion pairs for learning about literary and philosophical concepts. Your task is to create engaging, educational question-answer pairs that help learners understand key concepts from books.
+
+You will receive input in the following format:
+{
+    'book': <name of the book>,
+    'author': <name of the author>,
+    'concept': <specific concept to focus on>,
+    'relevant_knowledge': <relevant knowledge about the concept>,
+    'num_prompt_completion_pairs': <number of prompt-completion pairs to generate>
+}
+
+Your task is to generate exactly the specified number of prompt-completion pairs that:
+1. Focus on the given concept using the provided relevant knowledge
+2. Reference the book name and author appropriately
+3. Create natural, conversational questions that someone might ask when learning about this concept
+4. Provide clear, accurate answers that draw from the relevant knowledge provided
+5. Vary the question types (definitional, analytical, comparative, etc.)
+6. Use the author's name and book title naturally in the questions and answers
+
+Knowledge Usage Guidelines:
+- If relevant_knowledge is provided, prioritize it as the primary source for your answers
+- Supplement the relevant_knowledge with your own knowledge to provide more comprehensive and accurate responses
+- If relevant_knowledge is not provided or is insufficient, rely on your own knowledge about the book, author, and concept
+- Always ensure your responses are factually accurate and well-informed
+- When combining provided knowledge with your own knowledge, maintain consistency and avoid contradictions
+
+Guidelines for creating effective prompt-completion pairs:
+- Questions should be specific and focused on the concept
+- Answers should be informative and draw from the provided relevant knowledge when available
+- Include the author's name and book title in a natural way
+- Vary the complexity and approach of questions (some basic understanding, some deeper analysis)
+- Ensure answers are accurate and reflect both provided and general knowledge
+- Make the pairs engaging and educational
+
+Example 1:
+Input:
+{
+    'book': 'The Wealth of Nations',
+    'author': 'Adam Smith',
+    'concept': 'Invisible Hand',
+    'relevant_knowledge': 'By Invisible Hand he is describing the self-regulating nature of a free market, where individuals pursuing their own self-interest unintentionally contribute to the broader good of society.',
+    'num_prompt_completion_pairs': 3
+}
+
+Output:
+[
+    ['Does Adam Smith believe the free market should be left to self regulate?', 'Yes he does as expressed by the phrase he coined: Invisible Hand'],
+    ['What does Smith mean when he says free market?', 'He means a free market can self regulate when individuals pursue their own self interests'],
+    ['What is one of the major concepts Adam Smith introduces in The Wealth of Nations?', 'One of the major concepts he introduces is the idea of the invisible hand']
+]
+
+Example 2:
+Input:
+{
+    'book': '1984',
+    'author': 'George Orwell',
+    'concept': 'Doublethink',
+    'relevant_knowledge': None,
+    'num_prompt_completion_pairs': 1
+}
+
+Output:
+[
+    ['What is doublethink according to George Orwell in 1984?', 'Doublethink is the ability to hold two contradictory beliefs simultaneously and accept both of them as true, a concept central to the Party\'s control over reality in 1984.']
+]
+
+
+Return your response as a Python list of lists, where each inner list contains exactly two strings: the prompt (question) and the completion (answer).
+"""
+
+
+class PromptCompletionPairList(BaseModel):
+    prompt_completion_pair_list: List[List[str]] = Field(description='A list of prompt-completion pairs')
+
 
 class BookExists(BaseModel):
     exists: bool = Field(description='Whether the book exists')

@@ -9,7 +9,7 @@ import tiktoken
 from docling.chunking import HybridChunker
 from docling.datamodel.base_models import DocumentStream
 from docling.document_converter import DocumentConverter
-from docling_core.transforms.chunker.hierarchical_chunker import DocChunk
+from docling_core.transforms.chunker.hierarchical_chunker import BaseChunk
 from docling_core.transforms.chunker.tokenizer.openai import OpenAITokenizer
 from docling_core.types.doc.document import DoclingDocument
 from lancedb.embeddings import get_registry
@@ -61,7 +61,7 @@ class LanceRAG(RAG):
         converter = DocumentConverter()
         return converter.convert(document_source).document
 
-    def chunk_document(self, document: DoclingDocument) -> List[DocChunk]:
+    def chunk_document(self, document: DoclingDocument) -> List[BaseChunk]:
         """
         Chunk a document into a list of
 
@@ -75,7 +75,7 @@ class LanceRAG(RAG):
         chunk_list = list(chunker.chunk(document))
         return chunk_list
 
-    def embed_and_insert_chunks(self, table_name: str, chunks: List[DocChunk]) -> None:
+    def embed_and_insert_chunks(self, table_name: str, chunks: List[BaseChunk]) -> None:
         """
         Embed a list of chunks
 
@@ -91,13 +91,13 @@ class LanceRAG(RAG):
             {
                 'text': chunk.text,
                 'metadata': {
-                    'filename': chunk.meta.origin.filename,
+                    'filename': chunk.meta.origin.filename,  # type: ignore
                     'page_numbers': [
                         page_no
-                        for page_no in sorted(set(prov.page_no for item in chunk.meta.doc_items for prov in item.prov))
+                        for page_no in sorted(set(prov.page_no for item in chunk.meta.doc_items for prov in item.prov))  # type: ignore
                     ]
                     or None,
-                    'title': chunk.meta.headings[0] if chunk.meta.headings else None,
+                    'title': chunk.meta.headings[0] if chunk.meta.headings else None,  # type: ignore
                 },
             }
             for chunk in chunks

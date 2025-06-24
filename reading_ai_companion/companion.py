@@ -1,17 +1,21 @@
+import json
 import logging
 import os
 from typing import Any, Dict, List
 
 from agents import Agent, ModelSettings, RunConfig, Runner, function_tool
 
+from reading_ai_companion.finetuner import Finetuner
 from reading_ai_companion.knowledge_collector.core import CoreKnowledgeCollector
 from reading_ai_companion.llm_schema import (
     COMPANION_SYSTEM_PROMPT,
     CONCEPT_EXTRACTOR_SYSTEM_PROMPT,
+    PROMPT_COMPLETION_GENERATOR_SYSTEM_PROMPT,
     QUERY_CONSTRUCTION_SYSTEM_PROMPT,
     VERIFIER_SYSTEM_PROMPT,
     BookExists,
     ConceptExtractor,
+    PromptCompletionPairList,
     VectorDatabaseQuery,
 )
 from reading_ai_companion.rag import LanceRAG
@@ -43,7 +47,7 @@ class Companion:
 
         formatted_prompt = COMPANION_SYSTEM_PROMPT.format(book_name=book_name, author=self.author)
         self.agent = Agent(name='Assistant', instructions=formatted_prompt, model=self.model)
-        self.agent_context: List[Dict[str, Any]] = []
+        self.agent_context = []  # type: ignore
 
     def explain(self, use_knowledge_base: bool = False, num_concepts: int = 3, chapter: str | None = None):
         """
@@ -119,7 +123,7 @@ class Companion:
         """
         rag = LanceRAG()
         knowledge_collector = CoreKnowledgeCollector()
-        relevant_concepts = self._get_relevant_concepts(num_concepts)
+        relevant_concepts = self._get_relevant_concepts(num_concepts=num_concepts)
         logger.info('Concepts retrieved: %s', relevant_concepts)
 
         relevant_concepts.append(self.book_name)
@@ -131,6 +135,117 @@ class Companion:
                 chunks = rag.chunk_document(doc)
                 rag.embed_and_insert_chunks(self.book_name, chunks)
                 logger.info('Document inserted into Vector Database: %s', entity_url)
+
+    def setup_dataset_for_finetuning(
+        self,
+        base_model_name: str,
+        dataset_name: str | None = None,
+        use_knowledge_base: bool = True,
+        num_concepts: int = 3,
+        prompt_completion_pairs_per_concept: int = 5,
+    ):
+        """
+        Set up the dataset for fine-tuning the model.
+
+        :param base_model_name: The name of the model to finetune. Eg: Qwen/Qwen2.5-0.5B-Instruct
+        :param dataset_name: The name to give the dataset in hugging face. If not provided, it will be auto-generated.
+        :param use_knowledge_base: Whether to use the knowledge base when generating synthetic data.
+        :param num_concepts: The number of concepts from the book to generate synthetic data for.
+        :param prompt_completion_pairs_per_concept: The number of prompt-completion pairs to generate for each concept.
+        """
+        finetuner = Finetuner()
+
+        # setup data for dataset
+        data = self._setup_finetuning_data(use_knowledge_base, num_concepts, prompt_completion_pairs_per_concept)
+
+        if dataset_name is None:
+            # eg dataset_name = Qwen2.5-0.5B-Instruct-The-Great-Gatsby
+            dataset_name = f'{base_model_name.split("/")[-1]}-{self.book_name.replace(" ", "-")}'
+
+        finetuner.setup_dataset(base_model_name=base_model_name, data=data, push_to_hub=True, dataset_name=dataset_name)
+
+    def finetune(self, base_model_name: str, dataset_name: str | None = None):
+        """
+        Finetune the model on the dataset.
+
+        :param base_model_name: The name of the base model to finetune. Eg: Qwen/Qwen2.5-0.5B-Instruct
+        :param dataset_name: The name of the dataset to finetune on. It should be in hugging face.
+        """
+        finetuner = Finetuner()
+
+        # eg model_id = Qwen2.5-0.5B-Instruct-The-Great-Gatsby
+        model_id = f'{base_model_name.split("/")[-1]}-{self.book_name.replace(" ", "-")}'
+
+        if dataset_name is None:
+            dataset_name = model_id
+
+        # load dataset from Hugging Face
+        dataset = finetuner.load_dataset(dataset_name=dataset_name)
+
+        # load model kwargs, lora config, and training args from config.json
+        try:
+            with open(os.environ.get('CONFIG_FILE_PATH', 'config.json'), 'r', encoding='utf-8') as f:
+                config = json.load(f)
+        except FileNotFoundError:
+            raise ValueError('Config file not found. Please ensure the config file is set up')
+
+        model_kwargs = config['model_kwargs']
+        lora_config = config['lora_config']
+        training_args = config['training_args']
+
+        # Set up necessary configurations and train the model
+        finetuner.setup_lora(base_model_name=base_model_name, model_kwargs=model_kwargs, lora_config=lora_config)
+        finetuner.train(dataset=dataset, training_args=training_args)
+
+        # push the lora adapter and model to Hugging Face
+        finetuner.push_lora_adapter_and_model(model_id=model_id)
+
+    def _setup_finetuning_data(
+        self, use_knowledge_base: bool = True, num_concepts: int = 3, prompt_completion_pairs_per_concept: int = 5
+    ) -> List[List[str]]:
+        """
+        Generate synthetic data for finetuning.
+
+        :param use_knowledge_base: Whether to use the knowledge base to generate synthetic data.
+        :param num_concepts: The number of concepts to use to generate synthetic data.
+        :param prompt_completion_pairs_per_concept: The number of prompt-completion pairs to generate for each concept.
+
+        Returns:
+            List[List[str]]: A list of prompt-completion pairs.
+
+            Eg:
+            [
+                ['What is the main idea of the book?', 'The main idea of the book is ...'],
+                ['What is the main character of the book?', 'The main character of the book is ...'],
+            ]
+        """
+        rag = LanceRAG()
+
+        final_data: List[List[str]] = []
+        finetuning_data_generator_agent = Agent(
+            name='FinetuningDataGenerator',
+            instructions=PROMPT_COMPLETION_GENERATOR_SYSTEM_PROMPT,
+            model=self.model,
+            output_type=PromptCompletionPairList,
+        )
+        relevant_concepts = self._get_relevant_concepts(num_concepts=num_concepts)
+        for concept in relevant_concepts:
+            relevant_knowledge = None
+            if use_knowledge_base:
+                knowledge_base_queries = self._construct_queries_to_search_knowledge_base([concept])
+                logger.info('Searching for %s in the knowledge base for %s', knowledge_base_queries, self.book_name)
+                relevant_knowledge = '\n'.join(rag.search_table(self.book_name, knowledge_base_queries))
+
+            input_dict = {
+                'book': self.book_name,
+                'author': self.author,
+                'concept': concept,
+                'relevant_knowledge': relevant_knowledge if relevant_knowledge else None,
+                'num_prompt_completion_pairs': prompt_completion_pairs_per_concept,
+            }
+            finetuning_data_generator_result = Runner.run_sync(finetuning_data_generator_agent, str(input_dict))
+            final_data.extend(finetuning_data_generator_result.final_output.prompt_completion_pair_list)
+        return final_data
 
     def _get_relevant_concepts(self, chapter: str | None = None, num_concepts: int = 3) -> List[str]:
         """

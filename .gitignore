@@ -9,3 +9,5 @@ dist
 data/
 test-db
 .DS_Store
+config.json
+sft_output/
